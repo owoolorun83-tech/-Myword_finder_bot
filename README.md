@@ -4,7 +4,7 @@ A powerful Telegram bot that helps you find definitions, synonyms, and antonyms.
 
 ## ✨ Features
 - 📖 Get word definitions with examples
-- 🔀 Find synonyms  
+- 🔀 Find synonyms
 - ❌ Find antonyms
 - 📝 Interactive buttons for quick access
 - 🎯 Multiple dictionary sources for accuracy
@@ -22,3 +22,7 @@ A powerful Telegram bot that helps you find definitions, synonyms, and antonyms.
 2. Push code to GitHub
 3. Deploy on Railway
 4. Set environment variable: `TELEGRAM_BOT_TOKEN`
+
+## 🔧 Environment Variables
+- `TELEGRAM_BOT_TOKEN` - Your bot token from BotFather (required)
+- `PORT` - Port for Flask server (set by Railway)
