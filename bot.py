@@ -1,11 +1,9 @@
 import os
 import logging
-import re
-import json
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from PyDictionary import PyDictionary
-import requests
 
 # Setup logging
 logging.basicConfig(
@@ -20,19 +18,18 @@ TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 # Initialize dictionary
 dictionary = PyDictionary()
 
-# Free Dictionary API (fallback)
+# Free Dictionary API (more reliable)
 FREE_DICT_API = "https://api.dictionaryapi.dev/api/v2/entries/en/"
 
 def get_meaning_from_api(word):
     """Fetch word meaning from Free Dictionary API"""
     try:
-        response = requests.get(f"{FREE_DICT_API}{word}", timeout=5)
+        response = requests.get(f"{FREE_DICT_API}{word}", timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
                 result = f"📖 *{word.capitalize()}*\n\n"
                 
-                # Get meanings from first entry
                 entry = data[0]
                 if 'meanings' in entry:
                     for meaning in entry['meanings']:
@@ -42,19 +39,24 @@ def get_meaning_from_api(word):
                         definitions = meaning.get('definitions', [])
                         for i, definition in enumerate(definitions[:3], 1):
                             result += f"  {i}. {definition.get('definition', 'No definition')}\n"
-                            if 'example' in definition:
+                            if 'example' in definition and definition['example']:
                                 result += f"     📝 *Example:* {definition['example']}\n"
                         result += "\n"
                 
-                # Add synonyms and antonyms if available
+                # Add synonyms and antonyms
                 if 'meanings' in entry:
+                    all_synonyms = []
+                    all_antonyms = []
                     for meaning in entry['meanings']:
                         synonyms = meaning.get('synonyms', [])
                         antonyms = meaning.get('antonyms', [])
-                        if synonyms:
-                            result += f"*Synonyms:* {', '.join(synonyms[:5])}\n"
-                        if antonyms:
-                            result += f"*Antonyms:* {', '.join(antonyms[:5])}\n"
+                        all_synonyms.extend(synonyms)
+                        all_antonyms.extend(antonyms)
+                    
+                    if all_synonyms:
+                        result += f"*Synonyms:* {', '.join(all_synonyms[:5])}\n"
+                    if all_antonyms:
+                        result += f"*Antonyms:* {', '.join(all_antonyms[:5])}\n"
                 
                 return result
         return None
@@ -81,12 +83,11 @@ def get_meaning_pydictionary(word):
 
 def get_word_definition(word):
     """Get word definition with fallback mechanism"""
-    # Clean the word
     word = word.strip().lower()
     if not word or len(word) > 50:
         return "❌ Please provide a valid word (max 50 characters)."
     
-    # Try Free Dictionary API first (more reliable)
+    # Try Free Dictionary API first
     result = get_meaning_from_api(word)
     if result:
         return result
@@ -96,7 +97,6 @@ def get_word_definition(word):
     if result:
         return result
     
-    # Both failed
     return f"❌ Sorry, I couldn't find the definition for '*{word}*'.\n\nPlease check the spelling or try another word."
 
 def get_synonyms(word):
@@ -104,7 +104,7 @@ def get_synonyms(word):
     try:
         word = word.strip().lower()
         # Try API first
-        response = requests.get(f"{FREE_DICT_API}{word}", timeout=5)
+        response = requests.get(f"{FREE_DICT_API}{word}", timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data:
@@ -132,7 +132,7 @@ def get_antonyms(word):
     try:
         word = word.strip().lower()
         # Try API first
-        response = requests.get(f"{FREE_DICT_API}{word}", timeout=5)
+        response = requests.get(f"{FREE_DICT_API}{word}", timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data:
@@ -165,8 +165,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "❌ *Antonyms*\n"
         "📝 *Example Sentences*\n\n"
         "📌 *How to use:*\n"
-        "• Simply send me a word\n"
-        "• Or use commands:\n\n"
+        "• Simply send me any word\n"
+        "• Or use these commands:\n\n"
         "/define <word> - Get definition\n"
         "/synonym <word> - Get synonyms\n"
         "/antonym <word> - Get antonyms\n"
@@ -186,8 +186,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/antonym <word> - Get antonyms\n\n"
         "💡 *Quick Tip:*\n"
         "Just send any word directly and I'll find its meaning!\n\n"
-        "📊 *Stats:*\n"
-        "I use multiple dictionaries to ensure accuracy."
+        "📊 *Features:*\n"
+        "✅ Multiple dictionary sources\n"
+        "✅ Examples & usage\n"
+        "✅ Synonyms & antonyms\n"
+        "✅ Interactive buttons"
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
@@ -201,6 +204,7 @@ async def define_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     word = ' '.join(context.args)
+    await update.message.chat.send_action(action="typing")
     result = get_word_definition(word)
     
     # Add helpful keyboard
@@ -228,6 +232,7 @@ async def synonym_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     word = ' '.join(context.args)
+    await update.message.chat.send_action(action="typing")
     synonyms = get_synonyms(word)
     
     if synonyms and len(synonyms) > 0:
@@ -247,6 +252,7 @@ async def antonym_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     word = ' '.join(context.args)
+    await update.message.chat.send_action(action="typing")
     antonyms = get_antonyms(word)
     
     if antonyms and len(antonyms) > 0:
@@ -260,7 +266,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle regular text messages"""
     word = update.message.text.strip()
     
-    # Ignore very short or long messages
     if len(word) < 2:
         await update.message.reply_text("📝 Please send a valid word (at least 2 characters).")
         return
@@ -268,9 +273,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📝 Please send a shorter word (max 50 characters).")
         return
     
-    # Send typing indicator
     await update.message.chat.send_action(action="typing")
-    
     result = get_word_definition(word)
     
     # Add helpful keyboard
@@ -296,6 +299,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     if data.startswith("syn_"):
         word = data[4:]
+        await query.message.chat.send_action(action="typing")
         synonyms = get_synonyms(word)
         if synonyms and len(synonyms) > 0:
             result = f"🔀 *Synonyms for '{word}':*\n\n{', '.join(synonyms)}"
@@ -305,6 +309,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     elif data.startswith("ant_"):
         word = data[4:]
+        await query.message.chat.send_action(action="typing")
         antonyms = get_antonyms(word)
         if antonyms and len(antonyms) > 0:
             result = f"❌ *Antonyms for '{word}':*\n\n{', '.join(antonyms)}"
