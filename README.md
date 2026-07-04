@@ -4,7 +4,7 @@ A powerful Telegram bot that helps you find definitions, synonyms, and antonyms.
 
 ## ✨ Features
 - 📖 Get word definitions with examples
-- 🔀 Find synonyms
+- 🔀 Find synonyms  
 - ❌ Find antonyms
 - 📝 Interactive buttons for quick access
 - 🎯 Multiple dictionary sources for accuracy
