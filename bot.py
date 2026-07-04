@@ -1,6 +1,7 @@
 import os
 import logging
 import requests
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from PyDictionary import PyDictionary
@@ -18,7 +19,7 @@ TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 # Initialize dictionary
 dictionary = PyDictionary()
 
-# Free Dictionary API (more reliable)
+# Free Dictionary API
 FREE_DICT_API = "https://api.dictionaryapi.dev/api/v2/entries/en/"
 
 def get_meaning_from_api(word):
@@ -323,25 +324,35 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ An error occurred. Please try again later or use a different word."
         )
 
-def main():
-    """Start the bot"""
+def run_bot():
+    """Run the bot"""
     if not TOKEN:
         logger.error("❌ No token provided! Set TELEGRAM_BOT_TOKEN environment variable.")
         return
     
-    application = Application.builder().token(TOKEN).build()
-    
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("define", define_word))
-    application.add_handler(CommandHandler("synonym", synonym_command))
-    application.add_handler(CommandHandler("antonym", antonym_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_handler(CallbackQueryHandler(button_callback))
-    application.add_error_handler(error_handler)
-    
-    logger.info("🚀 Bot is starting...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == '__main__':
-    main()
+    try:
+        # Create application
+        application = Application.builder().token(TOKEN).build()
+        
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("define", define_word))
+        application.add_handler(CommandHandler("synonym", synonym_command))
+        application.add_handler(CommandHandler("antonym", antonym_command))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        application.add_handler(CallbackQueryHandler(button_callback))
+        application.add_error_handler(error_handler)
+        
+        logger.info("🚀 Bot is starting with polling...")
+        
+        # Start polling (this will block)
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            stop_signals=None  # Prevent signals from stopping the bot
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Bot error: {e}")
+        raise
