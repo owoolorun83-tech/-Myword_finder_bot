@@ -207,7 +207,6 @@ async def define_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.chat.send_action(action="typing")
     result = get_word_definition(word)
     
-    # Add helpful keyboard
     keyboard = [
         [
             InlineKeyboardButton("🔄 Synonyms", callback_data=f"syn_{word}"),
@@ -276,7 +275,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.chat.send_action(action="typing")
     result = get_word_definition(word)
     
-    # Add helpful keyboard
     keyboard = [
         [
             InlineKeyboardButton("🔄 Synonyms", callback_data=f"syn_{word}"),
@@ -331,10 +329,8 @@ def main():
         logger.error("❌ No token provided! Set TELEGRAM_BOT_TOKEN environment variable.")
         return
     
-    # Create application
     application = Application.builder().token(TOKEN).build()
     
-    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("define", define_word))
@@ -342,11 +338,8 @@ def main():
     application.add_handler(CommandHandler("antonym", antonym_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Add error handler
     application.add_error_handler(error_handler)
     
-    # Start polling
     logger.info("🚀 Bot is starting...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
